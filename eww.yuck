@@ -7,8 +7,8 @@
 
 ;; Polls
 (defpoll time :interval "1s" "date '+%H:%M'")
-(defpoll workspace_data :interval "100ms" "hyprctl workspaces -j | jq -r '.[] | select(.id <= 5) | .id' | sort -n")
-(defpoll active_workspace :interval "100ms" "hyprctl activeworkspace -j | jq '.id'")
+(defpoll workspace_data :interval "1s" "hyprctl workspaces -j | jq -r '.[] | select(.id <= 5) | .id' | sort -n")
+(defpoll active_workspace :interval "1s" "hyprctl activeworkspace -j | jq '.id'")
 (defpoll wifi_status :interval "5s" "nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2")
 (defpoll wifi_strength :interval "5s" "nmcli -t -f ACTIVE,SIGNAL dev wifi | grep '^yes' | cut -d: -f2")
 (defpoll volume_level :interval "1s" "amixer get Master | grep -o '[0-9]*%' | head -1 | tr -d '%'")
@@ -70,7 +70,7 @@
           (scale :class "volume-slider" :value volume_level :min 0 :max 100
                  :onchange "amixer set Master {}%"))
         (button :onclick "amixer set Master toggle"
-          (label :text "${volume_muted == '1' ? '🔇' : '🔊'}"))))))
+          (label :text "${volume_muted == '2' ? ' ' : ' '}"))))))
 
 (defwidget battery []
   (box :class "battery"
@@ -78,16 +78,16 @@
               :onhoverlost "${EWW_CMD} update battery_hover=false"
       (box :space-evenly false
         (revealer :reveal battery_hover :transition "slideleft"
-          (box :class "power-profiles" :orientation "v" :spacing 5
+          (box :class "power-profiles" :orientation "h" :spacing 5
             (button :class "${current_power_profile == 'performance' ? 'active' : ''}"
                     :onclick "powerprofilesctl set performance"
-              "⚡ Performance")
+              "󰈸")
             (button :class "${current_power_profile == 'balanced' ? 'active' : ''}"
                     :onclick "powerprofilesctl set balanced"
-              "⚖️ Balanced")
+              " ")
             (button :class "${current_power_profile == 'power-saver' ? 'active' : ''}"
                     :onclick "powerprofilesctl set power-saver"
-              "🔋 Power Saver")))
+              "󰂏")))
         (circular-progress :class "battery-circle" :value {EWW_BATTERY["BAT0"].capacity}
           (label :text "${EWW_BATTERY["BAT0"].capacity}%"))))))
 
@@ -98,16 +98,17 @@
       (box :space-evenly false
         (revealer :reveal power_menu_open :transition "slideleft"
           (box :class "power-options" :spacing 5
-            (button :onclick "systemctl poweroff" "⏻")
-            (button :onclick "systemctl reboot" "🔄")
+            (button :onclick "systemctl poweroff" "⏻ ")
+            (button :onclick "systemctl reboot" "")
             (button :onclick "systemctl suspend" "⏾")))
-        (button (label :text "⏻"))))))
+        (button (label :text " "))))))
 
 (defwidget clock []
   (box :class "clock"
     (label :text time)))
 
 (defwidget bar []
+  (eventbox :onhoverlost "${EWW_CMD} update power_menu_open=false"
   (centerbox :class "bar"
     (box :class "left" :halign "start" :space-evenly false
       (workspaces))
@@ -118,7 +119,7 @@
       (volume)
       (battery)
       (power_menu)
-      (clock))))
+      (clock)))))
 
 ;; Window
 (defwindow bar
