@@ -1,0 +1,134 @@
+;; Variables
+(defvar power_menu_open false)
+(defvar battery_hover false)
+(defvar volume_open false)
+(defvar music_hover false)
+(defvar wifi_open false)
+
+;; Polls
+(defpoll time :interval "1s" "date '+%H:%M'")
+(defpoll workspace_data :interval "100ms" "hyprctl workspaces -j | jq -r '.[] | select(.id <= 5) | .id' | sort -n")
+(defpoll active_workspace :interval "100ms" "hyprctl activeworkspace -j | jq '.id'")
+(defpoll wifi_status :interval "5s" "nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2")
+(defpoll wifi_strength :interval "5s" "nmcli -t -f ACTIVE,SIGNAL dev wifi | grep '^yes' | cut -d: -f2")
+(defpoll volume_level :interval "1s" "amixer get Master | grep -o '[0-9]*%' | head -1 | tr -d '%'")
+(defpoll volume_muted :interval "1s" "amixer get Master | grep -o 'off' | wc -l")
+(defpoll music_title :interval "2s" "playerctl metadata title 2>/dev/null || echo 'No Music'")
+(defpoll music_artist :interval "2s" "playerctl metadata artist 2>/dev/null || echo ''")
+(defpoll music_playing :interval "1s" "playerctl status 2>/dev/null || echo 'Stopped'")
+(defpoll music_shuffle :interval "2s" "playerctl shuffle 2>/dev/null || echo 'Off'")
+(defpoll music_loop :interval "2s" "playerctl loop 2>/dev/null || echo 'None'")
+(defpoll wifi_list :interval "10s" "nmcli -t -f SSID,SECURITY,SIGNAL dev wifi | head -5")
+(defpoll current_power_profile :interval "5s" "powerprofilesctl get")
+
+;; Widgets
+(defwidget workspaces []
+  (box :class "workspaces" :space-evenly false :spacing 5
+    (for ws in "[1,2,3,4,5]"
+      (button :class "${active_workspace == ws ? 'workspace-active' : 'workspace'}"
+              :onclick "hyprctl dispatch workspace ${ws}"
+        "${ws}"))))
+
+(defwidget music []
+  (box :class "music" :space-evenly false
+    (eventbox :onhover "${EWW_CMD} update music_hover=true"
+              :onhoverlost "${EWW_CMD} update music_hover=false"
+      (box :space-evenly false
+        (revealer :reveal music_hover :transition "slideleft"
+          (box :class "music-controls" :spacing 5
+            (button :onclick "playerctl previous" "⏮")
+            (button :onclick "playerctl next" "⏭")
+            (button :class "${music_shuffle == 'On' ? 'active' : ''}"
+                    :onclick "playerctl shuffle toggle" "🔀")
+            (button :class "${music_loop != 'None' ? 'active' : ''}"
+                    :onclick "playerctl loop track" "🔁")))
+        (button :onclick "playerctl play-pause"
+          (box :spacing 5
+            (label :text "${music_playing == 'Playing' ? '⏸' : '▶'}")
+            (label :text "${music_title}" :limit-width 25)
+            (label :text "${music_artist != '' ? '- ' + music_artist : ''}" :limit-width 15)))))))
+
+(defwidget wifi []
+  (box :class "wifi"
+    (eventbox :onhover "${EWW_CMD} update wifi_open=true"
+              :onhoverlost "${EWW_CMD} update wifi_open=false"
+      (box :space-evenly false
+        (revealer :reveal wifi_open :transition "slideleft"
+          (box :class "wifi-list" :orientation "v" :spacing 3
+            (for network in "${strsplit(wifi_list, '\n')}"
+              (button :onclick "nmcli dev wifi connect '${strsplit(network, ':')[0]}'"
+                "${strsplit(network, ':')[0]} ${strsplit(network, ':')[2]}%"))))
+        (button :onclick "nmcli radio wifi off && sleep 1 && nmcli radio wifi on"
+          (label :text "📶 ${wifi_status != '' ? wifi_status : 'Disconnected'}"))))))
+
+(defwidget volume []
+  (box :class "volume" :space-evenly false
+    (eventbox :onhover "${EWW_CMD} update volume_open=true"
+              :onhoverlost "${EWW_CMD} update volume_open=false"
+      (box :space-evenly false
+        (revealer :reveal volume_open :transition "slideleft"
+          (scale :class "volume-slider" :value volume_level :min 0 :max 100
+                 :onchange "amixer set Master {}%"))
+        (button :onclick "amixer set Master toggle"
+          (label :text "${volume_muted == '1' ? '🔇' : '🔊'}"))))))
+
+(defwidget battery []
+  (box :class "battery"
+    (eventbox :onhover "${EWW_CMD} update battery_hover=true"
+              :onhoverlost "${EWW_CMD} update battery_hover=false"
+      (box :space-evenly false
+        (revealer :reveal battery_hover :transition "slideleft"
+          (box :class "power-profiles" :orientation "v" :spacing 5
+            (button :class "${current_power_profile == 'performance' ? 'active' : ''}"
+                    :onclick "powerprofilesctl set performance"
+              "⚡ Performance")
+            (button :class "${current_power_profile == 'balanced' ? 'active' : ''}"
+                    :onclick "powerprofilesctl set balanced"
+              "⚖️ Balanced")
+            (button :class "${current_power_profile == 'power-saver' ? 'active' : ''}"
+                    :onclick "powerprofilesctl set power-saver"
+              "🔋 Power Saver")))
+        (circular-progress :class "battery-circle" :value {EWW_BATTERY["BAT0"].capacity}
+          (label :text "${EWW_BATTERY["BAT0"].capacity}%"))))))
+
+(defwidget power_menu []
+  (box :class "power-menu"
+    (eventbox :onhover "${EWW_CMD} update power_menu_open=true"
+              :onhoverlost "${EWW_CMD} update power_menu_open=false"
+      (box :space-evenly false
+        (revealer :reveal power_menu_open :transition "slideleft"
+          (box :class "power-options" :spacing 5
+            (button :onclick "systemctl poweroff" "⏻")
+            (button :onclick "systemctl reboot" "🔄")
+            (button :onclick "systemctl suspend" "⏾")))
+        (button (label :text "⏻"))))))
+
+(defwidget clock []
+  (box :class "clock"
+    (label :text time)))
+
+(defwidget bar []
+  (centerbox :class "bar"
+    (box :class "left" :halign "start" :space-evenly false
+      (workspaces))
+    (box :class "center" :halign "center"
+      (music))
+    (box :class "right" :halign "end" :space-evenly false :spacing 10
+      (wifi)
+      (volume)
+      (battery)
+      (power_menu)
+      (clock))))
+
+;; Window
+(defwindow bar
+  :monitor 0
+  :geometry (geometry :x "0%"
+                      :y "0%"
+                      :width "100%"
+                      :height "24px"
+                      :anchor "top center")
+  :stacking "overlay"
+  :exclusive true
+  :namespace "eww-bar"
+  (bar))

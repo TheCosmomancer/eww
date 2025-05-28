@@ -1,0 +1,248 @@
+* {
+    all: unset;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+}
+
+.bar {
+    background: rgba(30, 30, 46, 0.9);
+    border-bottom: 2px solid #89b4fa;
+    padding: 2px 8px;
+}
+
+.left {
+    margin-left: 5px;
+}
+
+.right {
+    margin-right: 5px;
+}
+
+.workspaces {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 3px;
+}
+
+.workspace {
+    background: transparent;
+    color: #cdd6f4;
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin: 0 1px;
+    transition: all 0.2s ease;
+}
+
+.workspace:hover {
+    background: rgba(137, 180, 250, 0.3);
+}
+
+.workspace-active {
+    background: #89b4fa;
+    color: #1e1e2e;
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin: 0 1px;
+    font-weight: bold;
+}
+
+.music {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: #cdd6f4;
+}
+
+.music button {
+    background: transparent;
+    color: #cdd6f4;
+}
+
+.music button:hover {
+    color: #89b4fa;
+}
+
+.music-controls {
+    margin-right: 8px;
+    background: rgba(49, 50, 68, 0.9);
+    border-radius: 4px;
+    padding: 3px;
+}
+
+.music-controls button {
+    background: transparent;
+    color: #cdd6f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.music-controls button:hover {
+    background: rgba(137, 180, 250, 0.3);
+    color: #89b4fa;
+}
+
+.music-controls .active {
+    background: #89b4fa;
+    color: #1e1e2e;
+}
+
+.wifi {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.wifi button {
+    background: transparent;
+    color: #cdd6f4;
+}
+
+.wifi button:hover {
+    color: #a6e3a1;
+}
+
+.wifi-list {
+    margin-right: 8px;
+    background: rgba(49, 50, 68, 0.9);
+    border-radius: 4px;
+    padding: 3px;
+}
+
+.wifi-list button {
+    background: transparent;
+    color: #cdd6f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.wifi-list button:hover {
+    background: rgba(166, 227, 161, 0.3);
+    color: #a6e3a1;
+}
+
+.volume {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.volume button {
+    background: transparent;
+    color: #cdd6f4;
+    margin-left: 3px;
+}
+
+.volume button:hover {
+    color: #fab387;
+}
+
+.volume-slider {
+    min-width: 80px;
+    min-height: 16px;
+    background: rgba(88, 91, 112, 0.5);
+    border-radius: 8px;
+}
+
+.volume-slider trough {
+    background: rgba(88, 91, 112, 0.5);
+    border-radius: 8px;
+    min-height: 4px;
+}
+
+.volume-slider highlight {
+    background: #fab387;
+    border-radius: 8px;
+}
+
+.volume-slider slider {
+    background: #fab387;
+    border-radius: 50%;
+    min-width: 12px;
+    min-height: 12px;
+}
+
+.battery {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.battery-circle {
+    color: #a6e3a1;
+    background: rgba(88, 91, 112, 0.3);
+    border-radius: 50%;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+.power-profiles {
+    margin-right: 8px;
+    background: rgba(49, 50, 68, 0.9);
+    border-radius: 4px;
+    padding: 3px;
+}
+
+.power-profiles button {
+    background: transparent;
+    color: #cdd6f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.power-profiles button:hover {
+    background: rgba(137, 180, 250, 0.3);
+    color: #89b4fa;
+}
+
+.power-profiles .active {
+    background: #89b4fa;
+    color: #1e1e2e;
+}
+
+.power-menu {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.power-menu button {
+    background: transparent;
+    color: #f38ba8;
+    font-size: 14px;
+}
+
+.power-menu button:hover {
+    color: #eba0ac;
+}
+
+.power-options {
+    margin-right: 8px;
+    background: rgba(49, 50, 68, 0.9);
+    border-radius: 4px;
+    padding: 3px;
+}
+
+.power-options button {
+    background: transparent;
+    color: #f38ba8;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.power-options button:hover {
+    background: rgba(243, 139, 168, 0.3);
+}
+
+.clock {
+    background: rgba(49, 50, 68, 0.8);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: #cdd6f4;
+    font-weight: bold;
+}
