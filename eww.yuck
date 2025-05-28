@@ -2,64 +2,124 @@
 (defvar power_menu_open false)
 (defvar battery_hover false)
 (defvar volume_open false)
-(defvar music_hover false)
-(defvar wifi_open false)
+(defvar music_window_open false)
+(defvar wifi_window_open false)
 
 ;; Polls
 (defpoll time :interval "1s" "date '+%H:%M'")
 (defpoll workspace_data :interval "100ms" "hyprctl workspaces -j | jq -r '.[] | select(.id <= 5) | .id' | sort -n")
-(defpoll active_workspace :interval "100ms" "hyprctl activeworkspace -j | jq '.id'")
+(defpoll active_workspace :interval "100ms" "hyprctl activeworkspace -j | jq -r '.id'")
 (defpoll wifi_status :interval "5s" "nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2")
 (defpoll wifi_strength :interval "5s" "nmcli -t -f ACTIVE,SIGNAL dev wifi | grep '^yes' | cut -d: -f2")
+(defpoll wifi_list :interval "5s" "nmcli -t -f SSID,SECURITY,SIGNAL,ACTIVE dev wifi | head -10")
+(defpoll wifi_enabled :interval "5s" "nmcli radio wifi")
 (defpoll volume_level :interval "1s" "amixer get Master | grep -o '[0-9]*%' | head -1 | tr -d '%'")
 (defpoll volume_muted :interval "1s" "amixer get Master | grep -o 'off' | wc -l")
 (defpoll music_title :interval "2s" "playerctl metadata title 2>/dev/null || echo 'No Music'")
 (defpoll music_artist :interval "2s" "playerctl metadata artist 2>/dev/null || echo ''")
+(defpoll music_album :interval "2s" "playerctl metadata album 2>/dev/null || echo ''")
 (defpoll music_playing :interval "1s" "playerctl status 2>/dev/null || echo 'Stopped'")
 (defpoll music_shuffle :interval "2s" "playerctl shuffle 2>/dev/null || echo 'Off'")
 (defpoll music_loop :interval "2s" "playerctl loop 2>/dev/null || echo 'None'")
-(defpoll wifi_list :interval "10s" "nmcli -t -f SSID,SECURITY,SIGNAL dev wifi | head -5")
+(defpoll music_position :interval "1s" "playerctl position --format '{{ duration(position) }}' 2>/dev/null || echo '0:00'")
+(defpoll music_length :interval "2s" "playerctl metadata --format '{{ duration(mpris:length) }}' 2>/dev/null || echo '0:00'")
 (defpoll current_power_profile :interval "5s" "powerprofilesctl get")
 
 ;; Widgets
 (defwidget workspaces []
   (box :class "workspaces" :space-evenly false :spacing 5
     (for ws in "[1,2,3,4,5]"
-      (button :class "${active_workspace == ws ? 'workspace-active' : 'workspace'}"
+      (button :class "${active_workspace == '${ws}' ? 'workspace-active' : 'workspace'}"
               :onclick "hyprctl dispatch workspace ${ws}"
         "${ws}"))))
 
 (defwidget music []
-  (box :class "music" :space-evenly false
-    (eventbox :onhover "${EWW_CMD} update music_hover=true"
-              :onhoverlost "${EWW_CMD} update music_hover=false"
+  (box :class "music"
+    (eventbox :onhover "${EWW_CMD} update music_window_open=true && ${EWW_CMD} open music-window"
+              :onhoverlost "${EWW_CMD} update music_window_open=false && ${EWW_CMD} close music-window"
+      (button :onclick "playerctl play-pause"
+        (label :text "${music_playing == 'Playing' ? '🎵' : '🎶'}")))))
+
+(defwidget music-window-content []
+  (box :class "music-window" :orientation "v" :spacing 10
+    ;; Song information
+    (box :class "music-info" :orientation "v" :spacing 5
+      (label :class "music-title" :text "${music_title}" :limit-width 30)
+      (label :class "music-artist" :text "${music_artist != '' ? music_artist : 'Unknown Artist'}" :limit-width 25)
+      (label :class "music-album" :text "${music_album != '' ? music_album : ''}" :limit-width 25))
+    
+    ;; Progress bar and time
+    (box :class "music-progress" :orientation "v" :spacing 5
       (box :space-evenly false
-        (revealer :reveal music_hover :transition "slideleft"
-          (box :class "music-controls" :spacing 5
-            (button :onclick "playerctl previous" "⏮")
-            (button :onclick "playerctl next" "⏭")
-            (button :class "${music_shuffle == 'On' ? 'active' : ''}"
-                    :onclick "playerctl shuffle toggle" "🔀")
-            (button :class "${music_loop != 'None' ? 'active' : ''}"
-                    :onclick "playerctl loop track" "🔁")))
-        (button :onclick "playerctl play-pause"
-          (box :spacing 5
-            (label :text "${music_playing == 'Playing' ? '⏸' : '▶'}")
-            (label :text "${music_title}" :limit-width 25)
-            (label :text "${music_artist != '' ? '- ' + music_artist : ''}" :limit-width 15)))))))
+        (label :class "music-time" :text "${music_position}" :halign "start")
+        (label :class "music-time" :text "${music_length}" :halign "end"))
+      (scale :class "music-progress-bar" :value 50 :min 0 :max 100))
+    
+    ;; Main controls
+    (box :class "music-controls" :space-evenly true :spacing 10
+      (button :class "music-control" :onclick "playerctl previous" 
+        (label :text "⏮"))
+      (button :class "music-control music-play" :onclick "playerctl play-pause"
+        (label :text "${music_playing == 'Playing' ? '⏸' : '▶'}"))
+      (button :class "music-control" :onclick "playerctl next"
+        (label :text "⏭")))
+    
+    ;; Secondary controls
+    (box :class "music-secondary" :space-evenly true :spacing 5
+      (button :class "music-toggle ${music_shuffle == 'On' ? 'active' : ''}"
+              :onclick "playerctl shuffle toggle"
+        (label :text "🔀"))
+      (button :class "music-toggle ${music_loop != 'None' ? 'active' : ''}"
+              :onclick "playerctl loop ${music_loop == 'None' ? 'Track' : 'None'}"
+        (label :text "🔁"))
+      (button :class "music-control"
+              :onclick "playerctl stop"
+        (label :text "⏹")))))
 
 (defwidget wifi []
   (box :class "wifi"
-    (eventbox :onhover "${EWW_CMD} update wifi_open=true"
-              :onhoverlost "${EWW_CMD} update wifi_open=false"
-      (box :space-evenly false
-        (revealer :reveal wifi_open :transition "slideleft"
-          (box :class "wifi-list" :orientation "v" :spacing 3
-            (for network in "${strsplit(wifi_list, '\n')}"
-              (button :onclick "nmcli dev wifi connect '${strsplit(network, ':')[0]}'"
-                "${strsplit(network, ':')[0]} ${strsplit(network, ':')[2]}%"))))
-        (button :onclick "nmcli radio wifi off && sleep 1 && nmcli radio wifi on"
-          (label :text "📶 ${wifi_status != '' ? wifi_status : 'Disconnected'}"))))))
+    (button :onclick "${EWW_CMD} update wifi_window_open=${!wifi_window_open} && if [ ${wifi_window_open} = true ]; then ${EWW_CMD} open wifi-window; else ${EWW_CMD} close wifi-window; fi"
+      (box :spacing 5
+        (label :text "📶")
+        (label :text "${wifi_status != '' ? wifi_status : 'Disconnected'}")
+        (label :text "${wifi_strength != '' ? wifi_strength + '%' : ''}")))))
+
+(defwidget wifi-window-content []
+  (box :class "wifi-window" :orientation "v" :spacing 10
+    ;; Header with controls
+    (box :class "wifi-header" :space-evenly false :spacing 10
+      (button :class "wifi-toggle" 
+              :onclick "if [ '${wifi_enabled}' = 'enabled' ]; then nmcli radio wifi off; else nmcli radio wifi on; fi"
+        (label :text "${wifi_enabled == 'enabled' ? '📶 Disable WiFi' : '📵 Enable WiFi'}"))
+      (button :class "wifi-refresh" 
+              :onclick "nmcli dev wifi rescan"
+        (label :text "🔄 Scan"))
+      (button :class "wifi-close" 
+              :onclick "${EWW_CMD} update wifi_window_open=false && ${EWW_CMD} close wifi-window"
+        (label :text "✕")))
+    
+    ;; Current connection status
+    (box :class "wifi-current" :orientation "v" :spacing 5
+      (label :class "wifi-current-title" :text "Current Connection:")
+      (label :text "${wifi_status != '' ? '🟢 Connected to: ' + wifi_status + ' (' + wifi_strength + '%)' : '🔴 Not connected'}"))
+    
+    ;; Available networks list
+    (box :class "wifi-networks" :orientation "v" :spacing 5
+      (label :class "wifi-networks-title" :text "Available Networks:")
+      (scroll :height 200 :vscroll true
+        (box :orientation "v" :spacing 3
+          (for network in "${strsplit(wifi_list, '\n')}"
+            (let ((ssid "${strsplit(network, ':')[0]}")
+                  (security "${strsplit(network, ':')[1]}")
+                  (signal "${strsplit(network, ':')[2]}")
+                  (active "${strsplit(network, ':')[3]}"))
+              (button :class "wifi-network ${active == 'yes' ? 'wifi-network-active' : ''}"
+                      :onclick "if [ '${active}' = 'yes' ]; then nmcli con down '${ssid}'; else nmcli dev wifi connect '${ssid}'; fi"
+                (box :space-evenly false :spacing 10
+                  (label :text "${active == 'yes' ? '🟢' : (security != '' ? '🔒' : '🔓')}")
+                  (label :text "${ssid}" :halign "start" :hexpand true)
+                  (label :text "${signal}%")
+                  (label :text "${active == 'yes' ? 'Disconnect' : 'Connect'}"))))))))))
 
 (defwidget volume []
   (box :class "volume" :space-evenly false
@@ -120,7 +180,7 @@
       (power_menu)
       (clock))))
 
-;; Window
+;; Windows
 (defwindow bar
   :monitor 0
   :geometry (geometry :x "0%"
@@ -132,3 +192,25 @@
   :exclusive true
   :namespace "eww-bar"
   (bar))
+
+(defwindow music-window
+  :monitor 0
+  :geometry (geometry :x "50%"
+                      :y "30px"
+                      :width "280px"
+                      :height "200px"
+                      :anchor "top center")
+  :stacking "overlay"
+  :namespace "eww-music"
+  (music-window-content))
+
+(defwindow wifi-window
+  :monitor 0
+  :geometry (geometry :x "10px"
+                      :y "30px"
+                      :width "350px"
+                      :height "300px"
+                      :anchor "top left")
+  :stacking "overlay"
+  :namespace "eww-wifi"
+  (wifi-window-content))
