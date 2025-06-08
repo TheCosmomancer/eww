@@ -4,13 +4,11 @@
 (defvar volume_open false)
 (defvar music_hover false)
 (defvar wifi_open false)
-
+(defvar brightness_open false)
 ;; Polls
 (defpoll time :interval "1s" "date '+%H:%M'")
-(defpoll workspace_data :interval "1s" "hyprctl workspaces -j | jq -r '.[] | select(.id <= 5) | .id' | sort -n")
-(defpoll active_workspace :interval "1s" "hyprctl activeworkspace -j | jq '.id'")
-(defpoll wifi_status :interval "5s" "nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2")
-(defpoll wifi_strength :interval "5s" "nmcli -t -f ACTIVE,SIGNAL dev wifi | grep '^yes' | cut -d: -f2")
+; (defpoll workspace_data :interval "1s" "hyprctl workspaces -j | jq -r '.[] | select(.id <= 5) | .id' | sort -n")
+(defpoll active_workspace :interval "100ms" "hyprctl activeworkspace -j | grep -o '\"id\": [0-9]*' | grep -o '[0-9]*'")
 (defpoll volume_level :interval "1s" "amixer get Master | grep -o '[0-9]*%' | head -1 | tr -d '%'")
 (defpoll volume_muted :interval "1s" "amixer get Master | grep -o 'off' | wc -l")
 (defpoll music_title :interval "2s" "playerctl metadata title 2>/dev/null || echo 'No Music'")
@@ -18,8 +16,9 @@
 (defpoll music_playing :interval "1s" "playerctl status 2>/dev/null || echo 'Stopped'")
 (defpoll music_shuffle :interval "2s" "playerctl shuffle 2>/dev/null || echo 'Off'")
 (defpoll music_loop :interval "2s" "playerctl loop 2>/dev/null || echo 'None'")
-(defpoll wifi_list :interval "10s" "nmcli -t -f SSID,SECURITY,SIGNAL dev wifi | head -5")
 (defpoll current_power_profile :interval "5s" "powerprofilesctl get")
+(defpoll brightness_level :interval "1s" "brightnessctl | grep -o '(.*)' | grep -o '[0-9]*'")
+(defpoll warp_status :interval "2s" "warp-cli status | grep -q 'Connected' && echo 'connected' || echo 'disconnected'")
 
 ;; Widgets
 (defwidget workspaces []
@@ -36,30 +35,29 @@
       (box :space-evenly false
         (revealer :reveal music_hover :transition "slideleft"
           (box :class "music-controls" :spacing 5
-            (button :onclick "playerctl previous" "⏮")
-            (button :onclick "playerctl next" "⏭")
             (button :class "${music_shuffle == 'On' ? 'active' : ''}"
                     :onclick "playerctl shuffle toggle" "🔀")
-            (button :class "${music_loop != 'None' ? 'active' : ''}"
-                    :onclick "playerctl loop track" "🔁")))
+            (button :onclick "playerctl previous" "⏮")))
         (button :onclick "playerctl play-pause"
-          (box :spacing 5
-            (label :text "${music_playing == 'Playing' ? '⏸' : '▶'}")
-            (label :text "${music_title}" :limit-width 25)
-            (label :text "${music_artist != '' ? '- ' + music_artist : ''}" :limit-width 15)))))))
+        (label :text "${music_title}" :limit-width 25))
+        (revealer :reveal music_hover :transition "slideright"
+        (box :class "music-controls" :spacing 5
+            (button :onclick "playerctl next" "⏭")
+            (button :class "${music_loop != 'None' ? 'active' : ''}" 
+              :onclick "if [ \"$(playerctl loop)\" = 'Playlist' ]; then playerctl loop None; else playerctl loop Playlist; fi" "🔁")))))))
 
-(defwidget wifi []
-  (box :class "wifi"
-    (eventbox :onhover "${EWW_CMD} update wifi_open=true"
-              :onhoverlost "${EWW_CMD} update wifi_open=false"
-      (box :space-evenly false
-        (revealer :reveal wifi_open :transition "slideleft"
-          (box :class "wifi-list" :orientation "v" :spacing 3
-            (for network in "${strsplit(wifi_list, '\n')}"
-              (button :onclick "nmcli dev wifi connect '${strsplit(network, ':')[0]}'"
-                "${strsplit(network, ':')[0]} ${strsplit(network, ':')[2]}%"))))
-        (button :onclick "nmcli radio wifi off && sleep 1 && nmcli radio wifi on"
-          (label :text "📶 ${wifi_status != '' ? wifi_status : 'Disconnected'}"))))))
+; (defwidget wifi []
+;   (box :class "wifi"
+;     (eventbox :onhover "${EWW_CMD} update wifi_open=true"
+;               :onhoverlost "${EWW_CMD} update wifi_open=false"
+;       (box :space-evenly false
+;         (revealer :reveal wifi_open :transition "slideleft"
+;           (box :class "wifi-list" :orientation "v" :spacing 3
+;             (for network in "${strsplit(wifi_list, '\n')}"
+;               (button :onclick "nmcli dev wifi connect '${strsplit(network, ':')[0]}'"
+;                 "${strsplit(network, ':')[0]} ${strsplit(network, ':')[2]}%"))))
+;         (button :onclick ""
+;           (label :text "📶 ${wifi_status != '' ? wifi_status : 'Disconnected'}"))))))
 
 (defwidget volume []
   (box :class "volume" :space-evenly false
@@ -71,7 +69,17 @@
                  :onchange "amixer set Master {}%"))
         (button :onclick "amixer set Master toggle"
           (label :text "${volume_muted == '2' ? ' ' : ' '}"))))))
-
+(defwidget brightness []
+  (box :class "volume" :space-evenly false
+    (eventbox :onhover "${EWW_CMD} update brightness_open=true"
+              :onhoverlost "${EWW_CMD} update brightness_open=false"
+      (box :space-evenly false
+        (revealer :reveal brightness_open :transition "slideleft"
+          (scale :class "volume-slider" :value brightness_level :min 0 :max 100
+                 :onchange "brightnessctl set {}%"))
+        (button 
+          ; :onclick "amixer set Master toggle"
+          (label :text "󰃟 "))))))
 (defwidget battery []
   (box :class "battery"
     (eventbox :onhover "${EWW_CMD} update battery_hover=true"
@@ -88,8 +96,16 @@
             (button :class "${current_power_profile == 'power-saver' ? 'active' : ''}"
                     :onclick "powerprofilesctl set power-saver"
               "󰂏")))
-        (circular-progress :class "battery-circle" :value {EWW_BATTERY["BAT0"].capacity}
-          (label :text "${EWW_BATTERY["BAT0"].capacity}%"))))))
+        (circular-progress :class "battery-circle"
+                           :value {EWW_BATTERY["BAT0"].capacity}
+                           :thickness 5
+          ; (label :text "${EWW_BATTERY["BAT0"].capacity}%")
+        (button 
+          :class "iconbat"
+          :limit-width 2
+          :tooltip "battery ${EWW_BATTERY["BAT0"].status} on ${EWW_BATTERY["BAT0"].capacity}%"
+          "")
+        )))))
 
 (defwidget power_menu []
   (box :class "power-menu"
@@ -98,27 +114,41 @@
       (box :space-evenly false
         (revealer :reveal power_menu_open :transition "slideleft"
           (box :class "power-options" :spacing 5
-            (button :onclick "systemctl poweroff" "⏻ ")
+            (button :onclick "systemctl suspend" "⏾")
             (button :onclick "systemctl reboot" "")
-            (button :onclick "systemctl suspend" "⏾")))
+            (button :onclick "systemctl poweroff" "⏻ ")))
         (button (label :text " "))))))
+(defwidget warp_toggle []
+  (button :class "warp-btn ${warp_status}"
+          :onclick "${warp_status == 'connected' ? 'warp-cli disconnect' : 'warp-cli connect'}"
+          :tooltip "${warp_status == 'connected' ? 'Disconnect from Warp' : 'Connect to Warp'}"
+    (label :text "${warp_status == 'connected' ? '󰅠 ' : '󰅟 '}" :class "warp-icon"))
+)
 
 (defwidget clock []
   (box :class "clock"
     (label :text time)))
-
+(defwidget systembar []
+  (systray))
 (defwidget bar []
-  (eventbox :onhoverlost "${EWW_CMD} update power_menu_open=false"
+  (eventbox :onhoverlost "${EWW_CMD} update power_menu_open=false
+                          ${EWW_CMD} update battery_hover=false
+                          ${EWW_CMD} update volume_open=false
+                          ${EWW_CMD} update wifi_open=false
+                          ${EWW_CMD} update music_hover=false
+                          ${EWW_CMD} update brightness_open=false"
   (centerbox :class "bar"
     (box :class "left" :halign "start" :space-evenly false
       (workspaces))
     (box :class "center" :halign "center"
       (music))
     (box :class "right" :halign "end" :space-evenly false :spacing 10
-      (wifi)
+      (warp_toggle)
       (volume)
+      (brightness)
       (battery)
       (power_menu)
+      (systembar)
       (clock)))))
 
 ;; Window
@@ -129,7 +159,6 @@
                       :width "100%"
                       :height "24px"
                       :anchor "top center")
-  :stacking "overlay"
+  :stacking "fg"
   :exclusive true
-  :namespace "eww-bar"
   (bar))
